@@ -156,14 +156,15 @@
     .size-50x30   { 
       width: min(550px, 82vw); 
       height: min(330px, 42vh); 
-      --format-scale: 0.72; /* Escala adaptada para que no toque bordes en 30cm */
+      --format-scale: 0.72; 
     }
 
+    /* Formato Redondo: ampliado y con proporción equilibrada */
     .size-50x50   { 
-      width: min(440px, 76vw, 46vh); 
-      height: min(440px, 76vw, 46vh); 
+      width: min(520px, 86vw, 54vh); 
+      height: min(520px, 86vw, 54vh); 
       border-radius: 50% !important; 
-      --format-scale: 0.62; /* Escala adaptada: flota al centro con aire circular */
+      --format-scale: 0.65; 
     }
 
     /* COMPORTAMIENTO REDONDO */
@@ -187,8 +188,9 @@
       background: linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(130,130,130,0.2) 50%, rgba(8,9,12,0.98) 100%);
     }
 
-    body.power-off .tunnel {
-      display: none;
+    body.power-off .tunnel,
+    body.power-off .round-perimeter-text {
+      display: none !important;
     }
 
     /* TÚNEL DE REBOTES */
@@ -235,16 +237,13 @@
       animation: chaseAnim 1.6s infinite linear;
     }
 
-    /* =========================================================================
-       GRÁFICA ADAPTATIVA AL FORMATO (NUNCA COLISIONA)
-       ========================================================================= */
+    /* GRÁFICA ADAPTATIVA AL FORMATO */
     .sign-assembly {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 2px;
-      /* Aplica la escala calibrada del formato combinada con el ancho de pantalla */
       transform: scale(calc(var(--format-scale, 1) * min(1, 100vw / 820)));
       transform-origin: center center;
       transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -273,7 +272,7 @@
       font-size: 23px;
     }
 
-    /* EMPANADA VECTORIAL REALISTA */
+    /* EMPANADA VECTORIAL */
     .empanada-stage {
       position: relative;
       width: 240px;
@@ -312,12 +311,16 @@
     }
 
     .ring-text {
-      font-size: 8.5px;
+      font-size: 9.2px;
       font-weight: 800;
-      letter-spacing: 2.2px;
-      fill: #ffffff;
-      opacity: 0.9;
-      text-shadow: 0 0 4px rgba(245, 158, 11, 0.8);
+      fill: #fffef2;
+      opacity: 0.95;
+      text-shadow: 0 0 6px rgba(245, 158, 11, 0.85), 0 0 12px rgba(245, 158, 11, 0.4);
+      transition: text-shadow 0.25s ease;
+    }
+
+    body.cyan-dots .ring-text {
+      text-shadow: 0 0 6px rgba(34, 211, 238, 0.85), 0 0 12px rgba(34, 211, 238, 0.4);
     }
 
     /* FOOTER */
@@ -372,14 +375,15 @@
       
       <div class="mirror-front"></div>
 
-      <!-- Texto perimetral de 360° para el 50x50cm Redondo -->
+      <!-- Texto perimetral continuo de 360° para el 50x50cm Redondo -->
       <svg class="round-perimeter-text" viewBox="0 0 500 500">
         <defs>
-          <path id="circleTextPath" d="M 250, 250 m -228, 0 a 228,228 0 1,1 456,0 a 228,228 0 1,1 -456,0"/>
+          <!-- Radio R=218 para evitar colisión con el marco exterior y la tira LED -->
+          <path id="circleTextPath" d="M 250, 250 m -218, 0 a 218,218 0 1,1 436,0 a 218,218 0 1,1 -436,0"/>
         </defs>
         <text class="ring-text">
-          <textPath href="#circleTextPath">
-            EMPANADAZAS • TE PARTO AL MEDIO • SABOR ARGENTINO • PALERMO • EMPANADAZAS • TE PARTO AL MEDIO • SABOR ARGENTINO • PALERMO •
+          <textPath href="#circleTextPath" xlink:href="#circleTextPath" textLength="1370" lengthAdjust="spacing">
+            EMPANADAZAS • TE PARTO AL MEDIO • SABOR ARGENTINO • PALERMO • EMPANADAZAS • TE PARTO AL MEDIO • SABOR ARGENTINO • PALERMO • EMPANADAZAS • TE PARTO AL MEDIO • SABOR ARGENTINO • PALERMO • 
           </textPath>
         </text>
       </svg>
@@ -542,7 +546,6 @@
 
       box.style.transform = `rotateY(${currX * 10}deg) rotateX(${-currY * 10}deg)`;
 
-      // Desplazamiento seguro y calibrado
       for (let i = 0; i < layers.length; i++) {
         const layer = layers[i];
         const depth = parseFloat(layer.dataset.depth);
