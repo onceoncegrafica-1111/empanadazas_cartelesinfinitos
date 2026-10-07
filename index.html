@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Simulador Cartel de Vacío Infinito - EMPANADAZAS</title>
+  <style>
+    :root {
+      --gold-crust: #e2942b;
+      --gold-bake: #a85813;
+      --cheese-hot: #fff4ba;
+      --cheese-deep: #ebaa36;
+      --led-cyan: #22d3ee;
+      --led-amber: #f59e0b;
+      --frame-color: #15161a;
+      --frame-border: #262933;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at 50% 50%, #161822 0%, #050608 100%);
+      color: #fff;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      perspective: 1400px;
+    }
+
+    /* BARRA SUPERIOR */
+    header.toolbar-wrap {
+      width: 100%;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: center;
+      z-index: 1000;
+      background: rgba(10, 11, 15, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      max-width: 1200px;
+    }
+
+    .tool-group {
+      display: flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 3px 6px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 3px;
+    }
+
+    .tool-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: #8b92a5;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 0 6px 0 4px;
+    }
+
+    button {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #c9cdd8;
+      padding: 5px 11px;
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fff;
+    }
+
+    button.active {
+      background: var(--led-amber);
+      border-color: var(--led-amber);
+      color: #0d0e12;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+    }
+
+    /* ESCENARIO PRINCIPAL */
+    main.stage {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      position: relative;
+      touch-action: none;
+      transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    body.is-floor main.stage {
+      transform: rotateX(60deg) scale(0.92);
+    }
+
+    body.is-floor .chassis {
+      border-color: #c9933b !important;
+      box-shadow: 0 35px 80px rgba(0, 0, 0, 0.98), 0 0 40px rgba(201, 147, 59, 0.3);
+    }
+
+    /* CHASIS FÍSICO CON ESCALA ADAPTATIVA DE CONTENIDO */
+    .chassis {
+      position: relative;
+      background: #020204;
+      border-radius: 16px;
+      border: 14px solid var(--frame-color);
+      outline: 2px solid var(--frame-border);
+      box-shadow: inset 0 0 25px #000, 0 18px 45px rgba(0, 0, 0, 0.85);
+      overflow: hidden;
+      transform-style: preserve-3d;
+      transition: width 0.3s ease, height 0.3s ease, border-radius 0.3s ease;
+      will-change: transform;
+    }
+
+    /* FORMATOS CON VARIABLES DE TAMAÑO Y ESCALA DE GRÁFICA */
+    .size-150x70  { 
+      width: min(780px, 88vw); 
+      height: min(364px, 46vh); 
+      --format-scale: 0.95; 
+    }
+    
+    .size-200x100 { 
+      width: min(860px, 92vw); 
+      height: min(430px, 50vh); 
+      --format-scale: 1.15; 
+    }
+    
+    .size-50x30   { 
+      width: min(550px, 82vw); 
+      height: min(330px, 42vh); 
+      --format-scale: 0.72; /* Escala adaptada para que no toque bordes en 30cm */
+    }
+
+    .size-50x50   { 
+      width: min(440px, 76vw, 46vh); 
+      height: min(440px, 76vw, 46vh); 
+      border-radius: 50% !important; 
+      --format-scale: 0.62; /* Escala adaptada: flota al centro con aire circular */
+    }
+
+    /* COMPORTAMIENTO REDONDO */
+    body.is-round .chassis,
+    body.is-round .tunnel-layer,
+    body.is-round .led-strip {
+      border-radius: 50% !important;
+    }
+
+    /* ESPEJO ESPÍA DELANTERO */
+    .mirror-front {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0.01) 40%, rgba(0,0,0,0.65) 100%);
+      pointer-events: none;
+      z-index: 80;
+    }
+
+    body.power-off .mirror-front {
+      opacity: 0.98;
+      background: linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(130,130,130,0.2) 50%, rgba(8,9,12,0.98) 100%);
+    }
+
+    body.power-off .tunnel {
+      display: none;
+    }
+
+    /* TÚNEL DE REBOTES */
+    .tunnel {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform-style: preserve-3d;
+    }
+
+    .tunnel-layer {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    /* TIRA DE LEDS PERIMETRAL */
+    .led-strip {
+      position: absolute;
+      inset: 6px;
+      border-radius: 10px;
+      border: 3px dotted rgba(245, 158, 11, 0.75);
+      box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.25);
+    }
+
+    body.cyan-dots .led-strip {
+      border-color: var(--led-cyan);
+      box-shadow: inset 0 0 10px rgba(34, 211, 238, 0.4);
+    }
+
+    @keyframes chaseAnim {
+      0% { border-color: rgba(245, 158, 11, 0.95); }
+      50% { border-color: rgba(255, 235, 160, 0.25); }
+      100% { border-color: rgba(245, 158, 11, 0.95); }
+    }
+
+    body.chase-on .led-strip {
+      animation: chaseAnim 1.6s infinite linear;
+    }
+
+    /* =========================================================================
+       GRÁFICA ADAPTATIVA AL FORMATO (NUNCA COLISIONA)
+       ========================================================================= */
+    .sign-assembly {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      /* Aplica la escala calibrada del formato combinada con el ancho de pantalla */
+      transform: scale(calc(var(--format-scale, 1) * min(1, 100vw / 820)));
+      transform-origin: center center;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .acrylic-title {
+      display: flex;
+      justify-content: center;
+      gap: 3px;
+    }
+
+    .acrylic-char {
+      display: inline-block;
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #fffef2;
+      text-shadow: 
+        0 1px 0px #b87a14,
+        0 2px 0px #704706,
+        0 3px 5px rgba(0, 0, 0, 0.95),
+        0 0 8px rgba(245, 158, 11, 0.4);
+    }
+
+    .subtitle .acrylic-char {
+      font-size: 23px;
+    }
+
+    /* EMPANADA VECTORIAL REALISTA */
+    .empanada-stage {
+      position: relative;
+      width: 240px;
+      height: 95px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 1px 0;
+    }
+
+    .empanada-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .brand-svg {
+      width: 205px;
+      height: auto;
+      margin-top: 2px;
+    }
+
+    /* FRASE CIRCULAR CONTINUA 360° PARA FORMATO REDONDO */
+    .round-perimeter-text {
+      display: none;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 70;
+      pointer-events: none;
+    }
+
+    body.is-round .round-perimeter-text {
+      display: block;
+    }
+
+    .ring-text {
+      font-size: 8.5px;
+      font-weight: 800;
+      letter-spacing: 2.2px;
+      fill: #ffffff;
+      opacity: 0.9;
+      text-shadow: 0 0 4px rgba(245, 158, 11, 0.8);
+    }
+
+    /* FOOTER */
+    footer.app-footer {
+      padding: 6px 12px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.45);
+      text-align: center;
+      background: rgba(8, 9, 12, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      z-index: 100;
+    }
+  </style>
+</head>
+<body class="mode-wall chase-on">
+
+  <!-- BARRA DE CONTROLES -->
+  <header class="toolbar-wrap">
+    <div class="toolbar">
+      
+      <!-- MEDIDAS -->
+      <div class="tool-group">
+        <span class="tool-label">Medida:</span>
+        <button class="active" onclick="setSize('150x70', this, false)">150×70 cm</button>
+        <button onclick="setSize('50x50', this, true)">50×50 cm (Redondo)</button>
+        <button onclick="setSize('200x100', this, false)">200×100 cm</button>
+        <button onclick="setSize('50x30', this, false)">50×30 cm</button>
+      </div>
+
+      <!-- MONTAJE -->
+      <div class="tool-group">
+        <span class="tool-label">Montaje:</span>
+        <button class="active" id="btn-view-wall" onclick="setView('wall')">Pared</button>
+        <button id="btn-view-floor" onclick="setView('floor')">Piso 3D</button>
+      </div>
+
+      <!-- LUCES -->
+      <div class="tool-group">
+        <span class="tool-label">Luces:</span>
+        <button class="active" id="btn-led-amber" onclick="setLedColor('amber')">Ámbar</button>
+        <button id="btn-led-cyan" onclick="setLedColor('cyan')">Cyan</button>
+        <button class="active" id="btn-chase" onclick="toggleChase()">Giro</button>
+        <button id="btn-power" onclick="togglePower()">Power</button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ESCENARIO -->
+  <main class="stage" id="stageEl">
+    <div class="chassis size-150x70" id="boxFrame">
+      
+      <div class="mirror-front"></div>
+
+      <!-- Texto perimetral de 360° para el 50x50cm Redondo -->
+      <svg class="round-perimeter-text" viewBox="0 0 500 500">
+        <defs>
+          <path id="circleTextPath" d="M 250, 250 m -228, 0 a 228,228 0 1,1 456,0 a 228,228 0 1,1 -456,0"/>
+        </defs>
+        <text class="ring-text">
+          <textPath href="#circleTextPath">
+            EMPANADAZAS • TE PARTO AL MEDIO • SABOR ARGENTINO • PALERMO • EMPANADAZAS • TE PARTO AL MEDIO • SABOR ARGENTINO • PALERMO •
+          </textPath>
+        </text>
+      </svg>
+
+      <!-- Túnel infinito -->
+      <div class="tunnel" id="tunnel"></div>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    Mueve el mouse o inclina el teléfono para probar la profundidad 3D • Acrílico Grabado y Marco de Polímero
+  </footer>
+
+  <script>
+    // PLANTILLA VECTORIAL
+    const graphicTemplate = `
+      <div class="sign-assembly">
+        <div class="acrylic-title">
+          <span class="acrylic-char">T</span>
+          <span class="acrylic-char">E</span>
+          <span style="width:6px"></span>
+          <span class="acrylic-char">P</span>
+          <span class="acrylic-char">A</span>
+          <span class="acrylic-char">R</span>
+          <span class="acrylic-char">T</span>
+          <span class="acrylic-char">O</span>
+        </div>
+
+        <div class="empanada-stage">
+          <svg class="empanada-svg" viewBox="0 0 340 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="crustL" x1="30" y1="20" x2="130" y2="110" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#f5b351"/>
+                <stop offset="60%" stop-color="#df8924"/>
+                <stop offset="100%" stop-color="#964b0b"/>
+              </linearGradient>
+              <linearGradient id="crustR" x1="310" y1="20" x2="210" y2="110" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#f5b351"/>
+                <stop offset="60%" stop-color="#df8924"/>
+                <stop offset="100%" stop-color="#964b0b"/>
+              </linearGradient>
+              <linearGradient id="cheeseG" x1="120" y1="70" x2="220" y2="70" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#fff8d6"/>
+                <stop offset="30%" stop-color="#ffd56b"/>
+                <stop offset="70%" stop-color="#fff3b0"/>
+                <stop offset="100%" stop-color="#f8bf44"/>
+              </linearGradient>
+            </defs>
+
+            <!-- Mitad izquierda con repulgue y tostado -->
+            <path d="M 28 98 C 20 40, 75 18, 134 26 C 138 60, 137 88, 133 108 C 88 114, 45 106, 28 98 Z" 
+                  fill="url(#crustL)" stroke="#522300" stroke-width="2.2" stroke-linejoin="round"/>
+            <path d="M 26 96 C 24 90, 26 84, 32 82 C 30 74, 33 68, 40 66 C 40 58, 46 52, 54 50 C 56 42, 64 36, 74 35 C 77 28, 87 24, 98 24 C 103 18, 115 18, 126 21 C 128 17, 136 18, 138 23" 
+                  stroke="#fff5d0" stroke-width="3" stroke-linecap="round" fill="none"/>
+            <ellipse cx="62" cy="62" rx="4" ry="2.5" fill="#692b02" opacity="0.8"/>
+            <ellipse cx="94" cy="48" rx="5" ry="3" fill="#582402" opacity="0.85"/>
+            <ellipse cx="112" cy="72" rx="4" ry="2.5" fill="#692b02" opacity="0.8"/>
+
+            <!-- Mitad derecha con repulgue y tostado -->
+            <path d="M 312 98 C 320 40, 265 18, 206 26 C 202 60, 203 88, 207 108 C 252 114, 295 106, 312 98 Z" 
+                  fill="url(#crustR)" stroke="#522300" stroke-width="2.2" stroke-linejoin="round"/>
+            <path d="M 314 96 C 316 90, 314 84, 308 82 C 310 74, 307 68, 300 66 C 300 58, 294 52, 286 50 C 284 42, 276 36, 266 35 C 263 28, 253 24, 242 24 C 237 18, 225 18, 214 21 C 212 17, 204 18, 202 23" 
+                  stroke="#fff5d0" stroke-width="3" stroke-linecap="round" fill="none"/>
+            <ellipse cx="278" cy="62" rx="4" ry="2.5" fill="#692b02" opacity="0.8"/>
+            <ellipse cx="246" cy="48" rx="5" ry="3" fill="#582402" opacity="0.85"/>
+            <ellipse cx="228" cy="72" rx="4" ry="2.5" fill="#692b02" opacity="0.8"/>
+
+            <!-- Queso mozzarella elástico fundido -->
+            <path d="M 132 38 Q 170 56 208 38 Q 170 66 132 38 Z" fill="url(#cheeseG)"/>
+            <path d="M 134 40 Q 170 58 206 40" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" opacity="0.9"/>
+            <path d="M 130 55 C 158 72, 182 72, 210 55 C 185 80, 155 80, 130 55 Z" fill="url(#cheeseG)"/>
+            <path d="M 135 57 C 158 73, 182 73, 205 57" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>
+            <path d="M 129 76 Q 170 108 211 76 Q 170 116 129 76 Z" fill="url(#cheeseG)"/>
+            <path d="M 132 78 Q 170 110 208 78" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/>
+            <ellipse cx="170" cy="98" rx="3" ry="5" fill="#ffeaa1"/>
+            <circle cx="169" cy="96" r="1.2" fill="#ffffff"/>
+          </svg>
+        </div>
+
+        <div class="acrylic-title subtitle">
+          <span class="acrylic-char">A</span>
+          <span class="acrylic-char">L</span>
+          <span style="width:6px"></span>
+          <span class="acrylic-char">M</span>
+          <span class="acrylic-char">E</span>
+          <span class="acrylic-char">D</span>
+          <span class="acrylic-char">I</span>
+          <span class="acrylic-char">O</span>
+        </div>
+
+        <svg class="brand-svg" viewBox="0 0 647.17 130.27" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#f59e0b" d="M65.14,130.27c26.76,0,50.77-16.43,60.55-41.15.42-1.06-.37-2.21-1.51-2.21h-17.64c-.59,0-1.12.32-1.41.83-8.16,14.43-23.39,23.34-39.99,23.34s-31.83-8.92-39.99-23.34c-.29-.51-.82-.83-1.41-.83H6.09c-1.14,0-1.93,1.15-1.51,2.21,9.79,24.72,33.79,41.15,60.55,41.15"/>
+          <path fill="#fffef2" d="M129.85,64.27s0-.01,0-.02l-.03-.09c-.03-.11-.06-.19-.09-.27-.35-.95-.85-1.82-1.48-2.58-.79-.95-1.46-2.01-2-3.14-.05-.12-.1-.23-.15-.34l-.08-.19c-.04-.09-.09-.21-.13-.32-.03-.08-.06-.17-.1-.26l-.07-.19c-.05-.12-.1-.26-.14-.4-.97-2.98-.99-6.13-.05-9.11,0,0,0,0,0-.01h0s0-.02,0-.04c.02-.08.04-.16.06-.24l.03-.12c.04-.14.08-.26.1-.37.02-.1.04-.2.05-.3l.09-.49c.02-.18.04-.39.05-.59v-.17c.02-.19.02-.42.01-.67,0-.03,0-.1,0-.15-.04-.93-.25-1.89-.61-2.82,0-.02-.02-.05-.02-.07l-.02-.05c-.19-.46-.41-.9-.67-1.3-.14-.22-.28-.43-.43-.62-.17-.22-.31-.39-.45-.55-.04-.04-.08-.08-.12-.13-.14-.15-.27-.3-.42-.43l-.33-.28c-.1-.09-.17-.15-.23-.2-.13-.11-.28-.2-.42-.3-.11-.07-.17-.12-.24-.17l-.04-.03c-.13-.08-.35-.21-.58-.33-2.99-1.57-5.36-4.17-6.67-7.34-.59-1.44-.95-2.96-1.07-4.52-.02-.25-.05-.49-.09-.75l-.05-.23c-.03-.17-.07-.34-.1-.49-.01-.05-.03-.1-.04-.16l-.03-.12c-.04-.13-.08-.28-.13-.41-.03-.09-.07-.19-.1-.29-.04-.12-.1-.25-.15-.38-.04-.1-.08-.19-.12-.28-.06-.12-.13-.25-.2-.38l-.04-.08c-.04-.07-.07-.12-.1-.17-.08-.13-.16-.26-.24-.39l-.15-.23c-.13-.19-.26-.37-.4-.54-.31-.38-.66-.74-1.04-1.07-.16-.13-.32-.27-.51-.4-.03-.02-.07-.04-.1-.07l-.09-.06c-.15-.1-.28-.19-.42-.27l-.22-.13c-.13-.07-.26-.14-.39-.21-.08-.04-.15-.07-.23-.11l-.68-.28c-.13-.05-.28-.09-.42-.13l-.27-.08c-.14-.04-.31-.07-.48-.11l-.26-.05c-.19-.03-.43-.06-.66-.08-4.33-.35-8.22-2.66-10.68-6.32l-.08-.13c-.1-.14-.26-.4-.41-.66-.1-.17-.19-.34-.28-.52-.03-.04-.06-.09-.08-.15-.19-.39-.39-.73-.59-1.04l-.17-.25c-.07-.1-.13-.19-.2-.28-.05-.06-.1-.12-.15-.18l-.23-.28h0s-.02-.03-.03-.04c-.14-.15-.28-.29-.43-.44-.04-.03-.09-.09-.15-.15-.1-.1-.27-.24-.44-.37l-.11-.1c-.12-.09-.3-.22-.5-.36,0,0,0,0,0,0,0,0-.1-.07-.13-.09-.09-.06-.28-.17-.49-.29l-.11-.07c-.13-.07-.32-.16-.52-.25l-.27-.11c-.08-.03-.17-.07-.26-.1-2.25-.8-4.34-.39-5.29-.11-.1.04-.2.06-.3.1-.14.05-.23.08-.23.08h0c-1.28.37-2.6.57-3.95.57-3.43,0-6.75-1.25-9.33-3.51-1.51-1.32-3.41-2.05-5.36-2.07-1.93.02-3.82.75-5.33,2.07-2.58,2.26-5.9,3.51-9.33,3.51-1.62,0-3.2-.28-4.72-.82-.32-.11-.69-.19-1.1-.23-.09,0-.16-.01-.24-.02-.21-.02-.38-.04-.55-.05h-.1s-.3,0-.3,0h-.32c-.17,0-.33.02-.5.04l-.31.03c-.12.02-.32.06-.52.1l-.18.03c-.14.03-.35.09-.55.15l-.14.04c-.14.05-.34.12-.54.2l-.27.11c-.16.07-.35.16-.53.25-.03.02-.05.03-.08.05-.2.11-.39.22-.55.33-.03.02-.06.04-.09.06-.18.12-.36.25-.52.38l-.02.02c-.21.17-.37.31-.55.48-.03.03-.06.06-.09.09-.14.14-.28.28-.42.43-.02.03-.04.06-.04.06l-.15.18s-.04.04-.04.05c-.1.11-.17.2-.24.29-.03.04-.05.08-.08.11l-.25.37c-.06.09-.09.12-.11.15-.11.18-.22.38-.34.62l-.09.16c-.09.18-.24.46-.4.74-.15.26-.31.52-.45.73l-.02.03c-2.47,3.7-6.37,6.01-10.7,6.36-.23.02-.46.05-.72.09l-.17.04c-.19.04-.36.07-.52.11l-.24.07c-.15.04-.3.09-.44.14-.07.03-.16.06-.25.09l-.46.2s-.11.05-.18.09c-.13.07-.26.14-.39.21l-.25.14c-.11.07-.24.16-.37.25l-.13.09h0s-.03.02-.05.03c-.2.15-.38.29-.55.43-.37.32-.72.68-1.04,1.07-.14.17-.28.35-.42.56l-.12.18c-.09.14-.18.28-.26.41l-.13.24c-.07.13-.14.26-.2.39-.04.08-.08.17-.12.26-.06.13-.11.27-.16.4-.03.09-.07.18-.1.28-.05.14-.09.28-.13.42l-.08.3c-.03.14-.06.3-.1.46l-.06.28c-.03.21-.06.46-.08.71-.12,1.56-.48,3.08-1.07,4.51-1.31,3.17-3.67,5.78-6.67,7.34-.21.11-.43.24-.63.36,0,0,0,0,0,0-.05.04-.12.09-.19.13-.18.12-.33.22-.46.33-.07.05-.13.1-.19.16l-.41.35c-.11.11-.25.25-.38.4-.04.04-.08.09-.16.16-.11.12-.24.29-.39.48-.01.02-.05.06-.07.09-.11.15-.24.35-.38.56-.26.42-.48.85-.67,1.31l-.04.11c-.37.94-.58,1.92-.62,2.9v.02c0,.31,0,.54,0,.79v.06c.02.26.04.46.06.67l.07.4s.01.06.01.07c.02.11.03.2.05.3.02.1.05.2.08.3l.06.2c.02.07.04.15.06.23l.02.08c.93,2.94.92,6.09-.05,9.07-.05.15-.1.28-.15.42l-.06.17c-.03.09-.06.18-.1.28-.04.11-.09.21-.14.32l-.08.2c-.04.09-.09.2-.14.31-.53,1.14-1.21,2.19-2,3.14-.64.76-1.14,1.63-1.48,2.58-.02.06-.04.13-.06.19l-.05.16c-.28.9-.43,1.8-.43,2.7,0,1.45.37,2.9,1.07,4.2.23.42.51.84.83,1.23l.1.12c1,1.14,2.92,2.68,6.3,3.46l.07.02c1.49.34,3.14.51,4.92.51h103.7c1.77,0,3.42-.17,4.89-.5l.1-.02c3.38-.78,5.29-2.32,6.3-3.46h0s0,0,0,0l.11-.13c.31-.37.59-.79.83-1.23.69-1.28,1.06-2.73,1.06-4.18,0-.89-.14-1.8-.42-2.68M109.75,56.47c-.43.55-1.07.87-1.77.87H22.29c-.7,0-1.34-.32-1.77-.87-.43-.55-.57-1.26-.39-1.93,5.44-20.81,23.95-35.37,45-35.42,21.06.04,39.57,14.61,45.01,35.42.18.67.03,1.37-.39,1.93"/>
+          <path fill="#fffef2" d="M160.9,27.38c10.73-.01,21.46-.02,32.19-.04,0,4.68,0,7.01,0,11.69-7.91.08-11.87.13-19.78.22,0,7.98,0,15.96,0,23.94,6.8-.22,10.2-.32,17.01-.53,0,4.7,0,7.05,0,11.76-6.8.27-10.2.41-17.01.7,0,7.98,0,15.96,0,23.94,7.9-.5,11.86-.74,19.76-1.19,0,4.68,0,7.01,0,11.69-10.72.73-21.44,1.51-32.15,2.32V27.38"/>
+          <path fill="#fffef2" d="M227.03,82.2c4.78-18.31,9.61-36.61,14.47-54.91,4.96,0,7.45,0,12.41,0-.02,26.25-.05,52.51-.07,78.76-4.75.23-7.13.35-11.88.59.01-14.84.02-29.68.04-44.52-3.57,15.02-7.12,30.05-10.65,45.09-3.37.19-5.05.28-8.42.47-3.65-14.93-7.28-29.87-10.88-44.81-.01,15.15-.02,30.3-.03,45.46-4.8.29-7.21.45-12.01.76.01-27.25.03-54.5.04-81.75,4.97,0,7.45,0,12.41-.01,4.82,18.3,9.67,36.6,14.56,54.88"/>
+          <path fill="#fffef2" d="M261.27,27.28c7.23,0,10.84,0,18.07-.01,9.42,0,17.4,6.04,16.52,16.21,0,4.63,0,6.95-.01,11.59.22,7.58-4.69,13.64-11.9,15.64-1.9.59-4.67.93-8.29,1.02-.81.02-1.21.03-2.02.05,0,11.13-.02,22.26-.03,33.39-4.96.21-7.45.31-12.41.54.02-26.14.05-52.28.07-78.42M273.67,38.35c0,7.44-.01,14.88-.02,22.31,1.14-.02,1.71-.03,2.85-.05,1.73-.03,2.91-.16,3.55-.38,2.25-.86,3.38-2.52,3.38-4.99,0-4.66,0-6.99,0-11.65,0-3.53-1.79-5.28-5.39-5.26-1.76.01-2.63.02-4.39.03"/>
+          <path fill="#fffef2" d="M332.83,76.3c1.34,8.96,2.68,17.92,4.02,26.88-5.02.11-7.53.16-12.55.29-.96-6.44-1.44-9.66-2.4-16.11-5.07.11-7.61.16-12.68.28-.99,6.52-1.48,9.79-2.47,16.32-5,.15-7.5.24-12.5.41,1.35-9.11,2.7-18.22,4.06-27.33,2.93-16.6,5.87-33.2,8.81-49.79,6.81,0,10.21,0,17.02,0,2.89,16.35,5.79,32.7,8.7,49.05M320.28,76.5c-1.57-10.57-3.15-21.14-4.71-31.71-1.59,10.63-3.18,21.26-4.76,31.89,3.79-.07,5.69-.11,9.48-.17"/>
+          <path fill="#fffef2" d="M343.9,27.24c4.96,0,7.45,0,12.41,0,3.91,14.59,7.82,29.17,11.74,43.75,0-14.59.01-29.17.02-43.76,4.6,0,6.89,0,11.49,0,0,25.11-.01,50.22-.02,75.33-4.97.04-7.45.06-12.42.12-3.77-14.1-7.54-28.2-11.3-42.31,0,14.15-.01,28.31-.02,42.46-4.78.07-7.16.11-11.94.2.01-25.27.03-50.53.04-75.8"/>
+          <path fill="#fffef2" d="M425.13,75.82c1.35,8.91,2.7,17.83,4.04,26.74-5.02-.04-7.53-.06-12.55-.08-.97-6.39-1.45-9.58-2.41-15.96-5.07-.01-7.61-.01-12.68-.01-.98,6.38-1.48,9.57-2.46,15.96-5,0-7.51.02-12.51.04,1.35-8.87,2.7-17.73,4.04-26.6,2.93-16.23,5.85-32.45,8.78-48.68,6.81,0,10.21,0,17.02,0,2.91,16.2,5.83,32.39,8.74,48.59M412.58,75.78c-1.58-10.43-3.16-20.86-4.74-31.3-1.58,10.43-3.16,20.86-4.74,31.29,3.79,0,5.69,0,9.48,0"/>
+          <path fill="#fffef2" d="M436.16,27.23c7.65,0,11.47,0,19.12,0,9.94,0,16.68,5.86,16.54,15.99,0,14.67.02,29.34.03,44.01.15,10.48-7.33,15.82-17.32,15.62-7.34-.12-11.01-.17-18.34-.24,0-25.13-.02-50.26-.02-75.4M448.58,37.98c0,18.02.01,36.04.02,54.06,2.18.03,3.27.04,5.44.07,3.6.05,5.4-1.63,5.39-5.05,0-14.63-.01-29.25-.02-43.88,0-3.45-1.8-5.18-5.4-5.19-2.18,0-3.26,0-5.44-.01"/>
+          <path fill="#fffef2" d="M515.73,77.07c1.36,9.18,2.71,18.35,4.06,27.53-5.02-.18-7.53-.27-12.55-.44-.97-6.55-1.46-9.83-2.43-16.37-5.07-.13-7.61-.19-12.68-.3-.98,6.46-1.47,9.69-2.44,16.14-5-.14-7.5-.2-12.51-.32,1.34-8.93,2.68-17.87,4.02-26.81,2.92-16.42,5.83-32.84,8.74-49.26,6.81,0,10.21,0,17.02,0,2.93,16.6,5.86,33.2,8.77,49.81M503.18,76.79c-1.59-10.65-3.17-21.31-4.76-31.96-1.57,10.59-3.14,21.19-4.71,31.78,3.79.07,5.69.11,9.48.18"/>
+          <path fill="#fffef2" d="M557.17,34.13c-5.55,20.07-11.15,40.13-16.79,60.18,7.04.26,10.55.4,17.59.7,0,4.49,0,6.74.01,11.23-10.52-.5-21.05-.96-31.58-1.39,0-2.69,0-4.03,0-6.72,5.63-19.89,11.23-39.8,16.79-59.71-6.51-.05-9.76-.07-16.27-.11,0-4.41,0-6.62-.01-11.04,10.09,0,20.17.01,30.26.02,0,2.73,0,4.1,0,6.84"/>
+          <path fill="#fffef2" d="M603.1,79.88c1.35,9.71,2.71,19.43,4.05,29.15-5.01-.32-7.52-.48-12.53-.79-.97-6.92-1.45-10.38-2.42-17.27-5.07-.24-7.6-.36-12.67-.58-.98,6.75-1.47,10.11-2.44,16.84-5-.28-7.5-.41-12.5-.66,1.34-9.29,2.68-18.57,4.01-27.86,2.92-17.13,5.83-34.26,8.73-51.4,6.81,0,10.21,0,17.02.02,2.94,17.52,5.86,35.04,8.76,52.56M590.56,79.38c-1.58-11.21-3.17-22.42-4.76-33.62-1.57,11.09-3.14,22.18-4.71,33.27,3.79.14,5.68.21,9.47.36"/>
+          <path fill="#fffef2" d="M611.45,43.26c-.02-10.27,7.5-17.62,17.8-17.21,9.87.39,18.79,6.7,17.85,17.74v11.37c-4.96-.13-7.44-.19-12.41-.32,0-4.5,0-6.75,0-11.24,0-3.75-1.8-5.65-5.4-5.72-.03,0-.05,0-.09,0-3.57-.04-5.35,1.82-5.35,5.56,0,3,0,4.51,0,7.51,0,3.69,3.9,8.42,11.62,13.93,6.46,4.61,11.6,11.65,11.61,19.91v10.68c1.02,11.04-7.96,16.82-17.78,16.44-10.35-.41-17.82-8.12-17.84-18.5,0-4.41,0-6.62,0-11.03,4.96.22,7.44.33,12.4.57,0,4.46,0,6.68,0,11.14,0,3.74,1.81,5.72,5.43,5.95,3.59.23,5.39-1.54,5.39-5.32,0-3.82,0-5.73,0-9.54,0-4.03-3.9-9.12-11.62-14.58-6.4-4.53-11.61-11.44-11.63-19.64,0-3.07,0-4.61,0-7.69"/>
+        </svg>
+      </div>
+    `;
+
+    // INICIALIZAR 8 CAPAS LIGERAS
+    const tunnel = document.getElementById('tunnel');
+    const TOTAL_LAYERS = 8;
+    const layers = [];
+
+    function initLayers() {
+      tunnel.innerHTML = '';
+      layers.length = 0;
+
+      for (let i = 0; i < TOTAL_LAYERS; i++) {
+        const layer = document.createElement('div');
+        layer.className = 'tunnel-layer';
+
+        const led = document.createElement('div');
+        led.className = 'led-strip';
+        layer.appendChild(led);
+
+        const art = document.createElement('div');
+        art.innerHTML = graphicTemplate;
+        layer.appendChild(art);
+
+        const scale = Math.pow(0.83, i);
+        const opacity = Math.max(0.12, Math.pow(0.76, i));
+
+        layer.style.opacity = opacity;
+        layer.dataset.depth = i + 1;
+        layer.dataset.baseScale = scale;
+
+        tunnel.appendChild(layer);
+        layers.push(layer);
+      }
+    }
+
+    initLayers();
+
+    // RENDER LOOP A 60-120 FPS
+    const box = document.getElementById('boxFrame');
+    let targetX = 0, targetY = 0;
+    let currX = 0, currY = 0;
+    let isUserActive = false;
+    let idleTimer = null;
+
+    function render() {
+      if (!isUserActive) {
+        const t = performance.now() * 0.0015;
+        targetX = Math.sin(t) * 0.35;
+        targetY = Math.cos(t * 0.8) * 0.25;
+      }
+
+      currX += (targetX - currX) * 0.16;
+      currY += (targetY - currY) * 0.16;
+
+      box.style.transform = `rotateY(${currX * 10}deg) rotateX(${-currY * 10}deg)`;
+
+      // Desplazamiento seguro y calibrado
+      for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        const depth = parseFloat(layer.dataset.depth);
+        const scale = parseFloat(layer.dataset.baseScale);
+        
+        const ox = currX * (depth * 1.8);
+        const oy = currY * (depth * 1.8);
+
+        layer.style.transform = `translate3d(${ox}px, ${oy}px, 0) scale(${scale})`;
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+
+    // EVENTOS INTERACTIVOS (MOUSE + TOUCH + GIROSCOPIO)
+    function touchActive() {
+      isUserActive = true;
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => { isUserActive = false; }, 3000);
+    }
+
+    window.addEventListener('mousemove', (e) => {
+      touchActive();
+      targetX = (e.clientX - window.innerWidth / 2) / (window.innerWidth / 2);
+      targetY = (e.clientY - window.innerHeight / 2) / (window.innerHeight / 2);
+    });
+
+    const stage = document.getElementById('stageEl');
+    stage.addEventListener('touchmove', (e) => {
+      touchActive();
+      if (e.touches.length > 0) {
+        const t = e.touches[0];
+        targetX = (t.clientX - window.innerWidth / 2) / (window.innerWidth / 2);
+        targetY = (t.clientY - window.innerHeight / 2) / (window.innerHeight / 2);
+      }
+    }, { passive: true });
+
+    if (window.DeviceOrientationEvent) {
+      window.addEventListener('deviceorientation', (e) => {
+        if (e.gamma !== null && e.beta !== null) {
+          touchActive();
+          targetX = Math.max(-1, Math.min(1, e.gamma / 25));
+          targetY = Math.max(-1, Math.min(1, (e.beta - 40) / 25));
+        }
+      }, { passive: true });
+    }
+
+    // CONTROLES DE BARRA
+    function setSize(sizeClass, btn, isRound) {
+      btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      box.className = `chassis size-${sizeClass}`;
+      document.body.classList.toggle('is-round', isRound);
+    }
+
+    function setView(view) {
+      document.body.classList.toggle('is-floor', view === 'floor');
+      document.getElementById('btn-view-wall').classList.toggle('active', view === 'wall');
+      document.getElementById('btn-view-floor').classList.toggle('active', view === 'floor');
+    }
+
+    function setLedColor(color) {
+      document.body.classList.toggle('cyan-dots', color === 'cyan');
+      document.getElementById('btn-led-amber').classList.toggle('active', color === 'amber');
+      document.getElementById('btn-led-cyan').classList.toggle('active', color === 'cyan');
+    }
+
+    function toggleChase() {
+      const active = document.body.classList.toggle('chase-on');
+      document.getElementById('btn-chase').classList.toggle('active', active);
+    }
+
+    let isPowerOn = true;
+    function togglePower() {
+      isPowerOn = !isPowerOn;
+      document.body.classList.toggle('power-off', !isPowerOn);
+      document.getElementById('btn-power').textContent = isPowerOn ? 'Power' : 'Encender';
+      document.getElementById('btn-power').classList.toggle('active', !isPowerOn);
+    }
+  </script>
+</body>
+</html>
